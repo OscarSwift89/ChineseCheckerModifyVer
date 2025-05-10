@@ -69,18 +69,75 @@ class MinimaxAI:
         if self.player_id == 1:
             my_target = (11, 11)
         elif self.player_id == 2:
-            my_target = (11, 0)
+            my_target = (0, 0)
         elif self.player_id == 3:
             my_target = (0, 11)
         elif self.player_id == 4:
-            my_target = (0, 0)
+            my_target = (11, 0)
+            
         my_pieces = np.argwhere(board == self.player_id)
-        my_distance = sum([abs(p[0] - my_target[0]) + abs(p[1] - my_target[1]) for p in my_pieces])
-        return -my_distance
+        score = 0
+        
+        # 计算每个棋子到目标的距离
+        for piece in my_pieces:
+            distance = abs(piece[0] - my_target[0]) + abs(piece[1] - my_target[1])
+            score -= distance * 2  # 距离越近分数越高
+            
+            # 如果棋子在目标区域内，给予额外奖励
+            if self.in_target_area(tuple(piece)):
+                score += 50
+                # 如果棋子在稳定区域内，给予更多奖励
+                if self.in_stable_area(tuple(piece)):
+                    score += 100
+                    
+        return score
+
+    def in_target_area(self, pos):
+        if self.player_id == 1:
+            # 右下角三角形区域
+            return (pos[0] >= 8 and pos[1] >= 8 and 
+                   (pos[0] + pos[1] >= 16))  # 确保在三角形区域内
+        elif self.player_id == 2:
+            # 左上角三角形区域
+            return (pos[0] <= 3 and pos[1] <= 3 and 
+                   (pos[0] + pos[1] <= 6))  # 确保在三角形区域内
+        elif self.player_id == 3:
+            # 右上角三角形区域
+            return (pos[0] <= 3 and pos[1] >= 8 and 
+                   (pos[1] - pos[0] >= 5))  # 确保在三角形区域内
+        elif self.player_id == 4:
+            # 左下角三角形区域
+            return (pos[0] >= 8 and pos[1] <= 3 and 
+                   (pos[0] - pos[1] >= 5))  # 确保在三角形区域内
+        return False
+
+    def in_stable_area(self, pos):
+        if self.player_id == 1:
+            # 右下角三角形稳定区域
+            return (pos[0] >= 9 and pos[1] >= 9 and 
+                   (pos[0] + pos[1] >= 18))  # 确保在三角形区域内
+        elif self.player_id == 2:
+            # 左上角三角形稳定区域
+            return (pos[0] <= 2 and pos[1] <= 2 and 
+                   (pos[0] + pos[1] <= 4))  # 确保在三角形区域内
+        elif self.player_id == 3:
+            # 右上角三角形稳定区域
+            return (pos[0] <= 2 and pos[1] >= 9 and 
+                   (pos[1] - pos[0] >= 7))  # 确保在三角形区域内
+        elif self.player_id == 4:
+            # 左下角三角形稳定区域
+            return (pos[0] >= 9 and pos[1] <= 2 and 
+                   (pos[0] - pos[1] >= 7))  # 确保在三角形区域内
+        return False
 
     def terminal(self, board):
-        p1_done = np.count_nonzero(board[9:12, 9:12] == 1) == 9
-        p2_done = np.count_nonzero(board[9:12, 0:3] == 2) == 9
-        p3_done = np.count_nonzero(board[0:3, 9:12] == 3) == 9
-        p4_done = np.count_nonzero(board[0:3, 0:3] == 4) == 9
+        # 检查每个玩家的三角形目标区域是否填满
+        p1_done = sum(1 for i in range(8, 12) for j in range(8, 12) 
+                     if i + j >= 16 and board[i, j] == 1) == 10
+        p2_done = sum(1 for i in range(0, 4) for j in range(0, 4) 
+                     if i + j <= 6 and board[i, j] == 2) == 10
+        p3_done = sum(1 for i in range(0, 4) for j in range(8, 12) 
+                     if j - i >= 5 and board[i, j] == 3) == 10
+        p4_done = sum(1 for i in range(8, 12) for j in range(0, 4) 
+                     if i - j >= 5 and board[i, j] == 4) == 10
         return p1_done or p2_done or p3_done or p4_done

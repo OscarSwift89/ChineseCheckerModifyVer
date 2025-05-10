@@ -11,33 +11,49 @@ class GreedyAI:
         if self.player_id == 1:
             return (11, 11)
         elif self.player_id == 2:
-            return (11, 0)
+            return (0, 0)
         elif self.player_id == 3:
             return (0, 11)
         elif self.player_id == 4:
-            return (0, 0)
+            return (11, 0)
         return None
 
     def in_target_area(self, pos):
         if self.player_id == 1:
-            return pos[0] >= 9 and pos[1] >= 9
+            # 右下角三角形区域
+            return (pos[0] >= 8 and pos[1] >= 8 and 
+                   (pos[0] + pos[1] >= 16))  # 确保在三角形区域内
         elif self.player_id == 2:
-            return pos[0] >= 9 and pos[1] < 3
+            # 左上角三角形区域
+            return (pos[0] <= 3 and pos[1] <= 3 and 
+                   (pos[0] + pos[1] <= 6))  # 确保在三角形区域内
         elif self.player_id == 3:
-            return pos[0] < 3 and pos[1] >= 9
+            # 右上角三角形区域
+            return (pos[0] <= 3 and pos[1] >= 8 and 
+                   (pos[1] - pos[0] >= 5))  # 确保在三角形区域内
         elif self.player_id == 4:
-            return pos[0] < 3 and pos[1] < 3
+            # 左下角三角形区域
+            return (pos[0] >= 8 and pos[1] <= 3 and 
+                   (pos[0] - pos[1] >= 5))  # 确保在三角形区域内
         return False
 
     def in_stable_area(self, pos):
         if self.player_id == 1:
-            return pos[0] >= 10 and pos[1] >= 10
+            # 右下角三角形稳定区域
+            return (pos[0] >= 9 and pos[1] >= 9 and 
+                   (pos[0] + pos[1] >= 18))  # 确保在三角形区域内
         elif self.player_id == 2:
-            return pos[0] >= 10 and pos[1] <= 1
+            # 左上角三角形稳定区域
+            return (pos[0] <= 2 and pos[1] <= 2 and 
+                   (pos[0] + pos[1] <= 4))  # 确保在三角形区域内
         elif self.player_id == 3:
-            return pos[0] <= 1 and pos[1] >= 10
+            # 右上角三角形稳定区域
+            return (pos[0] <= 2 and pos[1] >= 9 and 
+                   (pos[1] - pos[0] >= 7))  # 确保在三角形区域内
         elif self.player_id == 4:
-            return pos[0] <= 1 and pos[1] <= 1
+            # 左下角三角形稳定区域
+            return (pos[0] >= 9 and pos[1] <= 2 and 
+                   (pos[0] - pos[1] >= 7))  # 确保在三角形区域内
         return False
 
     def calculate_score(self, pos):
@@ -54,6 +70,7 @@ class GreedyAI:
                 valid_moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
                 if deep_target in valid_moves:
                     return (pos, deep_target)
+
         # 第二步：尝试调用腾挪入口的走法（free_up_target_entry）
         move_to_free = free_up_target_entry(board, self.player_id)
         if move_to_free:
@@ -64,32 +81,46 @@ class GreedyAI:
         outside_positions = [pos for pos in all_positions if not self.in_target_area(pos)]
         positions_to_consider = outside_positions if outside_positions else [pos for pos in all_positions if not self.in_stable_area(pos)]
         
-        bonus = 20
+        # 增加进入目标区域的奖励
+        bonus = 50  # 提高进入目标区域的奖励
         if outside_positions and len(outside_positions) == 1:
-            bonus = 100
+            bonus = 200  # 提高最后一个棋子的奖励
 
         best_move = None
         best_improvement = -float('inf')
         fallback_move = None
         best_fallback = float('inf')
         random.shuffle(positions_to_consider)
+        
         for pos in positions_to_consider:
             if self.in_target_area(pos) and self.in_stable_area(pos):
                 continue
+                
             candidate_moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
+            
+            # 如果已经在目标区域内，只考虑在目标区域内的移动
             if self.in_target_area(pos):
                 candidate_moves = [m for m in candidate_moves if self.in_target_area(m)]
+                # 优先考虑向稳定区域移动
+                candidate_moves.sort(key=lambda m: self.calculate_score(m))
             
             current_score = self.calculate_score(pos)
             for candidate in candidate_moves:
                 new_score = self.calculate_score(candidate)
                 improvement = current_score - new_score
+                
+                # 增加进入目标区域的奖励
                 if not self.in_target_area(pos) and self.in_target_area(candidate):
                     improvement += bonus
+                # 增加进入稳定区域的奖励
+                if not self.in_stable_area(pos) and self.in_stable_area(candidate):
+                    improvement += bonus * 2
+                
                 if improvement > best_improvement:
                     best_improvement = improvement
                     best_move = (pos, candidate)
                 if new_score < best_fallback:
                     best_fallback = new_score
                     fallback_move = (pos, candidate)
+        
         return best_move if best_move is not None else fallback_move
