@@ -7,7 +7,7 @@
 ![GitHub](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![GitHub](https://img.shields.io/badge/License-MIT-green)
 
-本项目是一个基于 Python 的中国跳棋游戏，支持 AI 对战功能。通过实现不同的 AI 算法（如贪心算法、A*算法、蒙特卡洛树搜索等），玩家可以在终端中观察 AI 代理之间的对抗。
+本项目是一个基于 Python 的中国跳棋游戏，支持 AI 对战功能。通过实现不同的 AI 算法（如贪心算法、A*算法、蒙特卡洛树搜索等），玩家可以在终端中观察 AI 代理之间的对抗。这是修改版本，更改了2人对战跟棋盘初始生成位置。
 
 ---
 
