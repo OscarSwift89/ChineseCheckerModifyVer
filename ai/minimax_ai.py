@@ -80,14 +80,20 @@ class MinimaxAI:
         
         # 计算每个棋子到目标的距离
         for piece in my_pieces:
+            piece_pos = tuple(piece)
+            # 如果棋子已经在目标区域内，给予最高分数以避免移动它
+            if self.in_target_area(piece_pos):
+                score -= 1000  # 负值表示更好的位置
+                continue
+                
             distance = abs(piece[0] - my_target[0]) + abs(piece[1] - my_target[1])
             score -= distance * 2  # 距离越近分数越高
             
             # 如果棋子在目标区域内，给予额外奖励
-            if self.in_target_area(tuple(piece)):
+            if self.in_target_area(piece_pos):
                 score += 50
                 # 如果棋子在稳定区域内，给予更多奖励
-                if self.in_stable_area(tuple(piece)):
+                if self.in_stable_area(piece_pos):
                     score += 100
                     
         return score

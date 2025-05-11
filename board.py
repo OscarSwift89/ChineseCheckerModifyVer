@@ -81,27 +81,42 @@ class Board:
 
     def is_game_over(self):
         """
-        胜利条件：当某一玩家的目标区域被填满时（10个棋子），返回 True
+        胜利条件：当某一玩家的所有棋子都到达目标区域并且目标区域被填满时，返回 True
         """
-        # 检查玩家1是否到达右下角三角形目标区域
+        # 检查玩家1是否所有棋子都到达右下角三角形目标区域
         p1_target_positions = [
             (11, 11),  # 第1层
             (11, 10), (10, 11),  # 第2层
             (11, 9), (10, 10), (9, 11),  # 第3层
             (11, 8), (10, 9), (9, 10), (8, 11)  # 第4层
         ]
-        p1_score = sum(1 for pos in p1_target_positions if self.board[pos] == 1)
+        p1_pieces = np.argwhere(self.board == 1)
+        p1_all_in_target = all(self.in_target_area(tuple(pos)) for pos in p1_pieces)
+        p1_target_filled = all(self.board[pos] == 1 for pos in p1_target_positions)
 
-        # 检查玩家2是否到达左上角三角形目标区域
+        # 检查玩家2是否所有棋子都到达左上角三角形目标区域
         p2_target_positions = [
             (0, 0),  # 第1层
             (0, 1), (1, 0),  # 第2层
             (0, 2), (1, 1), (2, 0),  # 第3层
             (0, 3), (1, 2), (2, 1), (3, 0)  # 第4层
         ]
-        p2_score = sum(1 for pos in p2_target_positions if self.board[pos] == 2)
+        p2_pieces = np.argwhere(self.board == 2)
+        p2_all_in_target = all(self.in_target_area(tuple(pos)) for pos in p2_pieces)
+        p2_target_filled = all(self.board[pos] == 2 for pos in p2_target_positions)
 
-        return p1_score == 10 or p2_score == 10
+        return (p1_all_in_target and p1_target_filled) or (p2_all_in_target and p2_target_filled)
+
+    def in_target_area(self, pos):
+        """检查位置是否在目标区域内"""
+        x, y = pos
+        # 玩家1的目标区域（右下角三角形）
+        if self.board[pos] == 1:
+            return (x >= 8 and y >= 8 and (x + y >= 16))
+        # 玩家2的目标区域（左上角三角形）
+        elif self.board[pos] == 2:
+            return (x <= 3 and y <= 3 and (x + y <= 6))
+        return False
 
     def render(self):
         """彩色渲染棋盘至终端"""

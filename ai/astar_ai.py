@@ -49,13 +49,10 @@ class AStarAI:
 
     def heuristic(self, pos):
         if self.player_id == 1:
-            target = (11, 11)
+            target = (9, 9)
         elif self.player_id == 2:
-            target = (0, 0)
-        elif self.player_id == 3:
-            target = (0, 11)
-        elif self.player_id == 4:
-            target = (11, 0)
+            target = (9, 0)
+        
         return abs(pos[0] - target[0]) + abs(pos[1] - target[1])
 
     def reconstruct_path(self, came_from, current):
@@ -78,12 +75,5 @@ class AStarAI:
             # 左上角三角形区域
             return (pos[0] <= 3 and pos[1] <= 3 and 
                    (pos[0] + pos[1] <= 6))  # 确保在三角形区域内
-        elif self.player_id == 3:
-            # 右上角三角形区域
-            return (pos[0] <= 3 and pos[1] >= 8 and 
-                   (pos[1] - pos[0] >= 5))  # 确保在三角形区域内
-        elif self.player_id == 4:
-            # 左下角三角形区域
-            return (pos[0] >= 8 and pos[1] <= 3 and 
-                   (pos[0] - pos[1] >= 5))  # 确保在三角形区域内
+        
         return False
