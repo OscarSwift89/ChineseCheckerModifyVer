@@ -9,7 +9,7 @@ from PIL import Image, ImageTk
 
 from game import Game
 from ai.greedy_ai import GreedyAI
-from ai.astar_ai import AStarAI
+from ai.minimax_ai import MinimaxAI
 
 class GameGUI:
     def __init__(self, root, p1_ai, p2_ai, game_duration):
@@ -307,7 +307,30 @@ class GameGUI:
         
         tracemalloc.start()
         start_decision = time.perf_counter()
+
+        # —— 如果 AI 真没选出任何 move，就随机选一手兜底 —— 
         move = current_ai.choose_move(self.game.board.board)
+        if move is None:
+            from ai.move_utils import get_all_moves
+            import random
+
+            # 本方所有合法走法
+            legal = get_all_moves(self.game.board.board, self.current_player)
+            if legal:
+                move = random.choice(legal)
+            else:
+                # 本方无路 → 先检查对方
+                other = 1 if self.current_player == 2 else 2
+                opp_legal = get_all_moves(self.game.board.board, other)
+                if not opp_legal:
+                    # 双方都卡住，直接结束
+                    self.end_game()
+                    return
+                else:
+                    # 本方跳过，换对手出
+                    self.current_player = other
+                    return
+
         decision_time = time.perf_counter() - start_decision
         current_mem, peak_mem = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -386,7 +409,7 @@ def create_selection_ui(root):
                         width=12, anchor="w")
     p1_label.pack(side=tk.LEFT, padx=5)
     p1_var = tk.StringVar(value="Greedy")
-    p1_menu = create_styled_combobox(p1_frame, ["Greedy", "A* 算法"])
+    p1_menu = create_styled_combobox(p1_frame, ["Greedy", "Minimax"])
     p1_menu.pack(side=tk.LEFT, padx=5)
     
     # 玩家2选择
@@ -398,7 +421,7 @@ def create_selection_ui(root):
                         width=12, anchor="w")
     p2_label.pack(side=tk.LEFT, padx=5)
     p2_var = tk.StringVar(value="Greedy")
-    p2_menu = create_styled_combobox(p2_frame, ["Greedy", "A* 算法"])
+    p2_menu = create_styled_combobox(p2_frame, ["Greedy", "Minimax"])
     p2_menu.pack(side=tk.LEFT, padx=5)
     
     # 游戏设置区域
@@ -448,8 +471,8 @@ def create_selection_ui(root):
 def start_game(p1_type, p2_type, game_duration, root, selection_frame):
     """开始游戏的函数"""
     # 创建AI实例
-    p1_ai = GreedyAI(1) if p1_type == "Greedy" else AStarAI(1)
-    p2_ai = GreedyAI(2) if p2_type == "Greedy" else AStarAI(2)
+    p1_ai = GreedyAI(1) if p1_type == "Greedy" else MinimaxAI(1)
+    p2_ai = GreedyAI(2) if p2_type == "Greedy" else MinimaxAI(2)
     
     # 销毁选择界面
     selection_frame.destroy()

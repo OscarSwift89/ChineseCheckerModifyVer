@@ -20,71 +20,55 @@ def get_jump_moves(pos, board):
     for dx, dy in directions:
         midx, midy = x + dx, y + dy
         landingx, landingy = x + 2 * dx, y + 2 * dy
-        if (0 <= midx < board.shape[0] and 0 <= midy < board.shape[1] and board[midx, midy] != 0):
-            if (0 <= landingx < board.shape[0] and 0 <= landingy < board.shape[1] and board[landingx, landingy] == 0):
-                moves.append((landingx, landingy))
+        if (0 <= midx < board.shape[0] and 0 <= midy < board.shape[1] and board[midx, midy] != 0 and
+            0 <= landingx < board.shape[0] and 0 <= landingy < board.shape[1] and board[landingx, landingy] == 0):
+            moves.append((landingx, landingy))
     return moves
 
-def get_all_moves(board, player_id, as_move_tuple=True):
-    moves = []
-    positions = np.argwhere(board == player_id)
-    for pos in positions:
-        pos = tuple(pos)
-        valid = get_valid_moves(pos, board)
-        jump = get_jump_moves(pos, board)
-        if as_move_tuple:
-            moves.extend([(pos, m) for m in valid])
-            moves.extend([(pos, m) for m in jump])
-        else:
-            moves.extend(valid)
-            moves.extend(jump)
-    return moves
-
-
-def get_continuous_jump_moves(pos, board, visited=None, max_depth=3):
-    """
-    实现连续跳跃（包括相邻跳与等距跳）的搜索，增加了一个 max_depth 限制连续跳跃的最大次数，
-    避免无限递归或生成过多候选走法。
-    参数:
-      pos: 当前起始位置
-      board: 棋盘（numpy 数组）
-      visited: 记录已访问位置的集合，用以防止循环
-      max_depth: 最大连续跳跃深度，达到后不再递归
-    返回:
-      一个列表，每个元素是一个路径（列表形式），路径的第一个元素为起点，最后一个元素为落点。
-    """
+def get_continuous_jump_moves(pos, board, visited=None, max_depth=5):
     if visited is None:
         visited = set([pos])
     if max_depth <= 0:
         return []
     paths = []
-    # 只考虑上下左右四个方向（如需扩展可加入对角方向）
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    for d in directions:
-        L = 2
-        while True:
-            new_r = pos[0] + L * d[0]
-            new_c = pos[1] + L * d[1]
-            if not (0 <= new_r < board.shape[0] and 0 <= new_c < board.shape[1]):
-                break
-            target = (new_r, new_c)
-            mid = (pos[0] + (L // 2) * d[0], pos[1] + (L // 2) * d[1])
-            # 条件：目标为空，且中间位置有棋子（无论哪一方）
-            if board[target] == 0 and board[mid] != 0:
-                if target not in visited:
-                    new_path = [pos, target]
-                    paths.append(new_path)
-                    new_visited = set(visited)
-                    new_visited.add(target)
-                    further_paths = get_continuous_jump_moves(target, board, new_visited, max_depth-1)
-                    for fp in further_paths:
-                        # 拼接路径：fp[0]通常为target，因此只添加 fp[1:]
-                        paths.append([pos] + fp[1:])
-            L += 2
-    print(paths)
+    directions = [(-1, -1), (-1, 0), (-1, 1),
+                  (0, -1),           (0, 1),
+                  (1, -1),  (1, 0),  (1, 1)]
+    for dx, dy in directions:
+        midx, midy = pos[0] + dx, pos[1] + dy
+        landingx, landingy = pos[0] + 2 * dx, pos[1] + 2 * dy
+        if (0 <= midx < board.shape[0] and 0 <= midy < board.shape[1] and board[midx, midy] != 0 and
+            0 <= landingx < board.shape[0] and 0 <= landingy < board.shape[1] and board[landingx, landingy] == 0):
+            target = (landingx, landingy)
+            if target not in visited:
+                paths.append([pos, target])
+                new_visited = set(visited)
+                new_visited.add(target)
+                further_paths = get_continuous_jump_moves(target, board, new_visited, max_depth-1)
+                for fp in further_paths:
+                    if fp[0] == pos:
+                        continue
+                    paths.append([pos] + fp[1:])
     return paths
-     
-    
+
+def get_all_moves(board, player_id, only_from=None):
+    moves = []
+    positions = [tuple(p) for p in np.argwhere(board == player_id)]
+    if only_from is not None:
+        positions = [only_from]
+    for pos in positions:
+        # 普通移动
+        for m in get_valid_moves(pos, board):
+            moves.append((pos, m))
+        # 跳跃
+        for m in get_jump_moves(pos, board):
+            moves.append((pos, m))
+        # 连续跳跃
+        jump_paths = get_continuous_jump_moves(pos, board)
+        for path in jump_paths:
+            if len(path) > 1:
+                moves.append((pos, path[-1]))
+    return moves
 
 def free_up_target_entry(board, player_id):
     """

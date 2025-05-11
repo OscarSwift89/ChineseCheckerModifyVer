@@ -1,7 +1,7 @@
 # ai/greedy_ai.py
 import numpy as np
 import random
-from .move_utils import get_valid_moves, get_jump_moves, free_up_target_entry
+from .move_utils import get_valid_moves, get_jump_moves, get_all_moves
 
 class GreedyAI:
     def __init__(self, player_id):
@@ -43,67 +43,65 @@ class GreedyAI:
         return abs(pos[0] - deep_target[0]) + abs(pos[1] - deep_target[1])
 
     def choose_move(self, board):
-        deep_target = self.get_deep_target()
-        # 第一步：如果深层目标单元为空，尝试直接将某个棋子移动到深层目标上
-        if board[deep_target] == 0:
-            positions = [tuple(p) for p in np.argwhere(board == self.player_id)]
-            for pos in positions:
-                valid_moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
-                if deep_target in valid_moves:
-                    return (pos, deep_target)
-
-        # 改进：只要目标区入口被己方棋子占据且入口外有己方棋子等待进入，就主动让路
-        move_to_free = self.improved_free_up_target_entry(board)
-        if move_to_free:
-            return move_to_free
-
-        # 第三步：正常的策略
+        # —— 1. 让路 —— #
         all_positions = [tuple(p) for p in np.argwhere(board == self.player_id)]
-        outside_positions = [pos for pos in all_positions if not self.in_target_area(pos)]
-        positions_to_consider = outside_positions if outside_positions else [pos for pos in all_positions if not self.in_stable_area(pos)]
-        
-        bonus = 50  # 提高进入目标区域的奖励
-        if outside_positions and len(outside_positions) == 1:
-            bonus = 200  # 提高最后一个棋子的奖励
+        outside = [pos for pos in all_positions if not self.in_target_area(pos)]
 
-        best_move = None
-        best_improvement = -float('inf')
-        fallback_move = None
-        best_fallback = float('inf')
-        random.shuffle(positions_to_consider)
-        
-        for pos in positions_to_consider:
-            if self.in_target_area(pos) and self.in_stable_area(pos):
-                continue
-            candidate_moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
-            if self.in_target_area(pos):
-                candidate_moves = [m for m in candidate_moves if self.in_target_area(m)]
-                candidate_moves.sort(key=lambda m: self.calculate_score(m))
-            current_score = self.calculate_score(pos)
-            for candidate in candidate_moves:
-                new_score = self.calculate_score(candidate)
-                improvement = current_score - new_score
-                if not self.in_target_area(pos) and self.in_target_area(candidate):
-                    improvement += bonus
-                if not self.in_stable_area(pos) and self.in_stable_area(candidate):
-                    improvement += bonus * 2
-                if improvement > best_improvement:
-                    best_improvement = improvement
-                    best_move = (pos, candidate)
-                if new_score < best_fallback:
-                    best_fallback = new_score
-                    fallback_move = (pos, candidate)
-        return best_move if best_move is not None else fallback_move
+        move = self.improved_free_up_target_entry(board)
+        if move:
+            return move
+
+        # —— 2. 对“场外”棋子做贪心 —— #
+        best_move, best_score = None, float('inf')
+        random.shuffle(outside)
+        for pos in outside:
+            # 普通走 + 单跳 + 连续跳
+            moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
+            moves += self.get_all_jump_targets(pos, board)
+            for dest in moves:
+                score = self.heuristic(dest)
+                if score < best_score:
+                    best_score, best_move = score, (pos, dest)
+        if best_move:
+            return best_move
+
+        # —— 3. 降级：考虑“目标区内”棋子 —— #
+        for pos in all_positions:
+            moves = get_valid_moves(pos, board) + get_jump_moves(pos, board)
+            moves += self.get_all_jump_targets(pos, board)
+            for dest in moves:
+                score = self.heuristic(dest)
+                if score < best_score:
+                    best_score, best_move = score, (pos, dest)
+        return best_move
+
+
+    def heuristic(self, pos):
+        if self.player_id == 1:
+            target = (11, 11)
+        else:
+            target = (0, 0)
+        return abs(pos[0] - target[0]) + abs(pos[1] - target[1])
+
+    def get_all_jump_targets(self, pos, board):
+        # 返回所有连续跳跃的终点
+        from .move_utils import get_continuous_jump_moves
+        jump_paths = get_continuous_jump_moves(pos, board)
+        return [path[-1] for path in jump_paths if len(path) > 1]
 
     def improved_free_up_target_entry(self, board):
-        # 只要目标区入口被己方棋子占据且入口外有己方棋子等待进入，就主动让路
+        # 让路逻辑同前
         if self.player_id == 1:
-            # 右下角入口
             entry_positions = [(8, 11), (9, 10), (10, 9), (11, 8)]
+            target_positions = [
+                (11, 11), (11, 10), (10, 11),
+                (11, 9), (10, 10), (9, 11),
+                (11, 8), (10, 9), (9, 10), (8, 11)
+            ]
             waiting = [pos for pos in np.argwhere(board == 1) if not self.in_target_area(tuple(pos))]
+            in_target = [pos for pos in target_positions if board[pos] == 1]
             for entry in entry_positions:
                 if board[entry] == 1:
-                    # 尝试将入口棋子往更深处移动
                     candidates = []
                     for dx, dy in [(1,0),(0,1),(1,1)]:
                         nx, ny = entry[0]+dx, entry[1]+dy
@@ -112,8 +110,7 @@ class GreedyAI:
                     if candidates and waiting:
                         best_candidate = min(candidates, key=lambda pos: abs(pos[0]-11)+abs(pos[1]-11))
                         return (entry, best_candidate)
-            # 新增：目标区内棋子主动退出目标区
-            if waiting:
+            if len(in_target) >= 9 and waiting:
                 for pos in np.argwhere(board == 1):
                     pos = tuple(pos)
                     if self.in_target_area(pos):
@@ -122,9 +119,14 @@ class GreedyAI:
                             if 0<=nx<12 and 0<=ny<12 and not self.in_target_area((nx,ny)) and board[nx,ny]==0:
                                 return (pos, (nx,ny))
         elif self.player_id == 2:
-            # 左上角入口
             entry_positions = [(3,0), (2,1), (1,2), (0,3)]
+            target_positions = [
+                (0, 0), (0, 1), (1, 0),
+                (0, 2), (1, 1), (2, 0),
+                (0, 3), (1, 2), (2, 1), (3, 0)
+            ]
             waiting = [pos for pos in np.argwhere(board == 2) if not self.in_target_area(tuple(pos))]
+            in_target = [pos for pos in target_positions if board[pos] == 2]
             for entry in entry_positions:
                 if board[entry] == 2:
                     candidates = []
@@ -135,8 +137,7 @@ class GreedyAI:
                     if candidates and waiting:
                         best_candidate = min(candidates, key=lambda pos: abs(pos[0]-0)+abs(pos[1]-0))
                         return (entry, best_candidate)
-            # 新增：目标区内棋子主动退出目标区
-            if waiting:
+            if len(in_target) >= 9 and waiting:
                 for pos in np.argwhere(board == 2):
                     pos = tuple(pos)
                     if self.in_target_area(pos):
