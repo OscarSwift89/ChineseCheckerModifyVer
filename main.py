@@ -13,6 +13,9 @@ from ai.minimax_ai import MinimaxAI
 
 class GameGUI:
     def __init__(self, root, p1_ai, p2_ai, game_duration):
+        # 奖励点位，可以自定义
+        self.reward_points = [(5,5), (5,6), (6,5), (6,6)]
+        self.reward_color = "#FFA500"  # 橙色
         self.root = root
         self.game_duration = game_duration  # 游戏总时长（秒）
         
@@ -175,32 +178,66 @@ class GameGUI:
         self.total_mem_label.config(text=f"总内存消耗: {total_mem / (1024*1024):.1f} MB")
         self.elapsed_label.config(text=f"游戏运行时间: {elapsed:.1f} s")
         
-        board = self.game.board.board
-        # 计算玩家1在右下角三角形区域的得分
-        p1_target_positions = [
-            (11, 11),  # 第1层
-            (11, 10), (10, 11),  # 第2层
-            (11, 9), (10, 10), (9, 11),  # 第3层
-            (11, 8), (10, 9), (9, 10), (8, 11)  # 第4层
-        ]
-        p1_score = sum(1 for pos in p1_target_positions if board[pos] == 1)
-
-        # 计算玩家2在左上角三角形区域的得分
-        p2_target_positions = [
-            (0, 0),  # 第1层
-            (0, 1), (1, 0),  # 第2层
-            (0, 2), (1, 1), (2, 0),  # 第3层
-            (0, 3), (1, 2), (2, 1), (3, 0)  # 第4层
-        ]
-        p2_score = sum(1 for pos in p2_target_positions if board[pos] == 2)
-
-        score_text = f"分数：\n玩家1: {p1_score}\n玩家2: {p2_score}"
+        # 显示奖励分数
+        p1_score = self.game.board.get_points_score(1)
+        p2_score = self.game.board.get_points_score(2)
+        score_text = f"奖励分数：\n玩家1: {p1_score}\n玩家2: {p2_score}"
         self.score_label.config(text=score_text)
 
     def update_board(self):
         self.canvas.delete("all")
         board = self.game.board.board
-        
+
+        # 1. 先绘制棋盘格背景
+        for i in range(12):
+            for j in range(12):
+                x1 = j * self.cell_size
+                y1 = i * self.cell_size
+                x2 = x1 + self.cell_size
+                y2 = y1 + self.cell_size
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill="#EEE", outline="#AAA")
+
+        # 2. 再画奖励点（钻石/黄金）
+        for (i, j) in self.game.board.diamond_points:
+            x1 = j * self.cell_size
+            y1 = i * self.cell_size
+            x2 = x1 + self.cell_size
+            y2 = y1 + self.cell_size
+            self.canvas.create_polygon(
+                (x1 + self.cell_size//2, y1 + 8),
+                (x2 - 8, y1 + self.cell_size//2),
+                (x1 + self.cell_size//2, y2 - 8),
+                (x1 + 8, y1 + self.cell_size//2),
+                fill="#4FC3F7", outline="#0288D1", width=4
+            )
+        for (i, j) in self.game.board.gold_points:
+            x1 = j * self.cell_size
+            y1 = i * self.cell_size
+            x2 = x1 + self.cell_size
+            y2 = y1 + self.cell_size
+            self.canvas.create_oval(
+                x1 + 12, y1 + 12, x2 - 12, y2 - 12,
+                fill="#FFD600", outline="#FF8F00", width=4
+            )
+
+        # 3. 最后画棋子
+        for i in range(12):
+            for j in range(12):
+                if board[i, j] == 1:
+                    x = j * self.cell_size + self.cell_size // 2
+                    y = i * self.cell_size + self.cell_size // 2
+                    self.canvas.create_oval(
+                        x - 18, y - 18, x + 18, y + 18,
+                        fill="#E53935", outline="#B71C1C", width=3
+                    )
+                elif board[i, j] == 2:
+                    x = j * self.cell_size + self.cell_size // 2
+                    y = i * self.cell_size + self.cell_size // 2
+                    self.canvas.create_oval(
+                        x - 18, y - 18, x + 18, y + 18,
+                        fill="#1976D2", outline="#0D47A1", width=3
+                    )
+
         # 绘制棋盘背景
         for i in range(12):
             for j in range(12):
@@ -246,6 +283,22 @@ class GameGUI:
                     )
 
     def game_step(self):
+        # 检查奖励胜利条件
+        p1_score = self.game.board.get_points_score(1)
+        p2_score = self.game.board.get_points_score(2)
+        diamond_total = len(self.game.board.diamond_points)
+        gold_total = len(self.game.board.gold_points)
+        p1_diamond = sum(1 for pos in self.game.board.diamond_points if self.game.board.board[pos] == 1)
+        p2_diamond = sum(1 for pos in self.game.board.diamond_points if self.game.board.board[pos] == 2)
+        p1_gold = sum(1 for pos in self.game.board.gold_points if self.game.board.board[pos] == 1)
+        p2_gold = sum(1 for pos in self.game.board.gold_points if self.game.board.board[pos] == 2)
+        if p1_score >= 12 or (p1_diamond == diamond_total and p1_gold == gold_total):
+            self.show_victory(1)
+            return
+        if p2_score >= 12 or (p2_diamond == diamond_total and p2_gold == gold_total):
+            self.show_victory(2)
+            return
+
         elapsed = time.perf_counter() - self.start_time
         total_mem = self.process.memory_info().rss
         
@@ -473,18 +526,19 @@ def start_game(p1_type, p2_type, game_duration, root, selection_frame):
     # 创建AI实例
     p1_ai = GreedyAI(1) if p1_type == "Greedy" else MinimaxAI(1)
     p2_ai = GreedyAI(2) if p2_type == "Greedy" else MinimaxAI(2)
-    
     # 销毁选择界面
     selection_frame.destroy()
     
     # 创建游戏界面
     GameGUI(root, p1_ai, p2_ai, game_duration)
 
+# END OF CLASS GameGUI
+
 # 主程序入口
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("中国跳棋 AI 对战")
-    
+
     # 设置窗口图标（如果有的话）
     try:
         root.iconbitmap("chess_icon.ico")

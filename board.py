@@ -5,7 +5,21 @@ class Board:
     def __init__(self):
         # 初始化 12x12 棋盘，全为 0 表示空位
         self.board = np.zeros((12, 12), dtype=int)
+        # 奖励点定义：钻石+3分，黄金+1分
+        self.diamond_points = [(5,5), (6,6)]
+        self.gold_points = [(5,6), (6,5)]
         self.init_pieces()
+
+    def get_points_score(self, player_id):
+        score = 0
+        for pos in self.diamond_points:
+            if self.board[pos] == player_id:
+                score += 3
+        for pos in self.gold_points:
+            if self.board[pos] == player_id:
+                score += 1
+        return score
+
 
     def init_pieces(self):
         """
