@@ -5,9 +5,10 @@ class Board:
     def __init__(self):
         # 初始化 12x12 棋盘，全为 0 表示空位
         self.board = np.zeros((12, 12), dtype=int)
-        # 奖励点定义：钻石+3分，黄金+1分
+        # 奖励点定义：钻石+3分，黄金+2分，青铜+1分
         self.diamond_points = [(5,5), (6,6)]
         self.gold_points = [(5,6), (6,5)]
+        self.bronze_points = [(4,5), (5,4), (6,7), (7,6)]  # 示例坐标，可自定义
         self.init_pieces()
 
     def get_points_score(self, player_id):
@@ -16,6 +17,9 @@ class Board:
             if self.board[pos] == player_id:
                 score += 3
         for pos in self.gold_points:
+            if self.board[pos] == player_id:
+                score += 2
+        for pos in self.bronze_points:
             if self.board[pos] == player_id:
                 score += 1
         return score
@@ -60,12 +64,14 @@ class Board:
         self.board[8, 11] = 2
 
     def move_piece(self, from_pos, to_pos):
-        """移动棋子，如果目标位置为空则移动成功"""
+        """移动棋子，如果目标位置为空则移动成功，奖励点自动归属占领者"""
+        moved = False
         if self.board[to_pos] == 0:
             self.board[to_pos] = self.board[from_pos]
             self.board[from_pos] = 0
-            return True
-        return False
+            moved = True
+        # 可扩展：如果奖励点被占领，自动归属当前玩家
+        return moved
 
     def get_valid_moves(self, pos):
         """获取指定位置的所有基本（上下左右）合法移动"""
@@ -95,9 +101,14 @@ class Board:
 
     def is_game_over(self):
         """
-        胜利条件：当某一玩家的所有棋子都到达目标区域并且目标区域被填满时，返回 True
+        胜利条件：某一玩家分数>=12分 或 所有棋子到达目标区域且目标区被填满
         """
-        # 检查玩家1是否所有棋子都到达右下角三角形目标区域
+        # 计分胜利
+        p1_score = self.get_points_score(1)
+        p2_score = self.get_points_score(2)
+        if p1_score >= 12 or p2_score >= 12:
+            return True
+        # 传统胜利
         p1_target_positions = [
             (11, 11),  # 第1层
             (11, 10), (10, 11),  # 第2层
@@ -108,7 +119,6 @@ class Board:
         p1_all_in_target = all(self.in_target_area(tuple(pos)) for pos in p1_pieces)
         p1_target_filled = all(self.board[pos] == 1 for pos in p1_target_positions)
 
-        # 检查玩家2是否所有棋子都到达左上角三角形目标区域
         p2_target_positions = [
             (0, 0),  # 第1层
             (0, 1), (1, 0),  # 第2层

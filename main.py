@@ -13,9 +13,11 @@ from ai.minimax_ai import MinimaxAI
 
 class GameGUI:
     def __init__(self, root, p1_ai, p2_ai, game_duration):
-        # 奖励点位，可以自定义
-        self.reward_points = [(5,5), (5,6), (6,5), (6,6)]
-        self.reward_color = "#FFA500"  # 橙色
+        # 三类奖励点位
+        self.diamond_points = [(5,5), (6,6)]
+        self.gold_points = [(5,6), (6,5)]
+        self.bronze_points = [(4,5), (5,4), (6,7), (7,6)]
+        self.reward_color = "#FFA500"  # 兼容旧代码
         self.root = root
         self.game_duration = game_duration  # 游戏总时长（秒）
         
@@ -181,7 +183,7 @@ class GameGUI:
         # 显示奖励分数
         p1_score = self.game.board.get_points_score(1)
         p2_score = self.game.board.get_points_score(2)
-        score_text = f"奖励分数：\n玩家1: {p1_score}\n玩家2: {p2_score}"
+        score_text = f"奖励分数（钻石3/金2/铜1）：\n玩家1: {p1_score}\n玩家2: {p2_score}"
         self.score_label.config(text=score_text)
 
     def update_board(self):
@@ -197,7 +199,7 @@ class GameGUI:
                 y2 = y1 + self.cell_size
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill="#EEE", outline="#AAA")
 
-        # 2. 再画奖励点（钻石/黄金）
+        # 2. 再画奖励点（钻石/黄金/青铜）
         for (i, j) in self.game.board.diamond_points:
             x1 = j * self.cell_size
             y1 = i * self.cell_size
@@ -218,6 +220,15 @@ class GameGUI:
             self.canvas.create_oval(
                 x1 + 12, y1 + 12, x2 - 12, y2 - 12,
                 fill="#FFD600", outline="#FF8F00", width=4
+            )
+        for (i, j) in self.game.board.bronze_points:
+            x1 = j * self.cell_size
+            y1 = i * self.cell_size
+            x2 = x1 + self.cell_size
+            y2 = y1 + self.cell_size
+            self.canvas.create_rectangle(
+                x1 + 16, y1 + 16, x2 - 16, y2 - 16,
+                fill="#A0522D", outline="#6D4C41", width=3
             )
 
         # 3. 最后画棋子
@@ -283,6 +294,15 @@ class GameGUI:
                     )
 
     def game_step(self):
+        # 检查分数胜利
+        p1_score = self.game.board.get_points_score(1)
+        p2_score = self.game.board.get_points_score(2)
+        if p1_score >= 12:
+            self.show_victory(1)
+            return
+        if p2_score >= 12:
+            self.show_victory(2)
+            return
         # 检查奖励胜利条件
         p1_score = self.game.board.get_points_score(1)
         p2_score = self.game.board.get_points_score(2)
@@ -493,7 +513,7 @@ def create_selection_ui(root):
                          width=12, anchor="w")
     time_label.pack(side=tk.LEFT, padx=5)
     time_var = tk.StringVar(value="1分钟")
-    time_menu = create_styled_combobox(time_frame, ["1分钟", "2分钟", "3分钟", "4分钟", "5分钟"])
+    time_menu = create_styled_combobox(time_frame, ["1分钟", "2分钟", "3分钟"])
     time_menu.pack(side=tk.LEFT, padx=5)
     
     # 开始游戏按钮
