@@ -13,11 +13,7 @@ from ai.minimax_ai import MinimaxAI
 
 class GameGUI:
     def __init__(self, root, p1_ai, p2_ai, game_duration):
-        # 三类奖励点位
-        self.diamond_points = [(5,5), (6,6)]
-        self.gold_points = [(5,6), (6,5)]
-        self.bronze_points = [(4,5), (5,4), (6,7), (7,6)]
-        self.reward_color = "#FFA500"  # 兼容旧代码
+        # 移除奖励点相关内容
         self.root = root
         self.game_duration = game_duration  # 游戏总时长（秒）
         
@@ -180,10 +176,10 @@ class GameGUI:
         self.total_mem_label.config(text=f"总内存消耗: {total_mem / (1024*1024):.1f} MB")
         self.elapsed_label.config(text=f"游戏运行时间: {elapsed:.1f} s")
         
-        # 显示奖励分数
+        # 显示每个玩家所得的积分
         p1_score = self.game.board.get_points_score(1)
         p2_score = self.game.board.get_points_score(2)
-        score_text = f"奖励分数（钻石3/金2/铜1）：\n玩家1: {p1_score}\n玩家2: {p2_score}"
+        score_text = f"积分：\n玩家1: {p1_score}\n玩家2: {p2_score}"
         self.score_label.config(text=score_text)
 
     def update_board(self):
@@ -199,38 +195,7 @@ class GameGUI:
                 y2 = y1 + self.cell_size
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill="#EEE", outline="#AAA")
 
-        # 2. 再画奖励点（钻石/黄金/青铜）
-        for (i, j) in self.game.board.diamond_points:
-            x1 = j * self.cell_size
-            y1 = i * self.cell_size
-            x2 = x1 + self.cell_size
-            y2 = y1 + self.cell_size
-            self.canvas.create_polygon(
-                (x1 + self.cell_size//2, y1 + 8),
-                (x2 - 8, y1 + self.cell_size//2),
-                (x1 + self.cell_size//2, y2 - 8),
-                (x1 + 8, y1 + self.cell_size//2),
-                fill="#4FC3F7", outline="#0288D1", width=4
-            )
-        for (i, j) in self.game.board.gold_points:
-            x1 = j * self.cell_size
-            y1 = i * self.cell_size
-            x2 = x1 + self.cell_size
-            y2 = y1 + self.cell_size
-            self.canvas.create_oval(
-                x1 + 12, y1 + 12, x2 - 12, y2 - 12,
-                fill="#FFD600", outline="#FF8F00", width=4
-            )
-        for (i, j) in self.game.board.bronze_points:
-            x1 = j * self.cell_size
-            y1 = i * self.cell_size
-            x2 = x1 + self.cell_size
-            y2 = y1 + self.cell_size
-            self.canvas.create_rectangle(
-                x1 + 16, y1 + 16, x2 - 16, y2 - 16,
-                fill="#A0522D", outline="#6D4C41", width=3
-            )
-
+        # 移除奖励点绘制逻辑
         # 3. 最后画棋子
         for i in range(12):
             for j in range(12):
@@ -301,21 +266,6 @@ class GameGUI:
             self.show_victory(1)
             return
         if p2_score >= 12:
-            self.show_victory(2)
-            return
-        # 检查奖励胜利条件
-        p1_score = self.game.board.get_points_score(1)
-        p2_score = self.game.board.get_points_score(2)
-        diamond_total = len(self.game.board.diamond_points)
-        gold_total = len(self.game.board.gold_points)
-        p1_diamond = sum(1 for pos in self.game.board.diamond_points if self.game.board.board[pos] == 1)
-        p2_diamond = sum(1 for pos in self.game.board.diamond_points if self.game.board.board[pos] == 2)
-        p1_gold = sum(1 for pos in self.game.board.gold_points if self.game.board.board[pos] == 1)
-        p2_gold = sum(1 for pos in self.game.board.gold_points if self.game.board.board[pos] == 2)
-        if p1_score >= 12 or (p1_diamond == diamond_total and p1_gold == gold_total):
-            self.show_victory(1)
-            return
-        if p2_score >= 12 or (p2_diamond == diamond_total and p2_gold == gold_total):
             self.show_victory(2)
             return
 
